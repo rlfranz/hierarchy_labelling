@@ -21,11 +21,15 @@
       stroke-width: 1.5px;
     }
 
+
 </style>
 <script src="https://d3js.org/d3.v3.min.js"></script>
 <body>
 <main>
 <script>
+//machine selected label. 
+//Try "shrines", "architecture", "sculpture", "interior architecture", "allegories"
+var label = "interior architecture";
 
 var margin = {top: 20, right: 120, bottom: 20, left: 120},
     width = 3000 - margin.right - margin.left,
@@ -52,26 +56,49 @@ d3.json("/data/objects.json", function(error, flare) {
   root.x0 = height / 2;
   root.y0 = 0;
 
-  function collapse(d) {
-    if (d.children) {
-      d._children = d.children;
-      d._children.forEach(collapse);
-      d.children = null;
-    }
-  }
-
-
-  // root.children.forEach(function(d){
-  //   if (d.name == temples)
-  // });
-  root.children.forEach(collapse);
-  // root.children.forEach(function(d){highlight_tag(d,"temples")});
-  update(root);
+  //make root two levels above machine selected label
+  root = get_parent(root, label);
+  //collapse everything except two levels above and below label
+  collapse(root, label)
+  update(root, label);
 });
 
 d3.select(self.frameElement).style("width", "height");
 
-function update(source) {
+function get_parent(source, label){
+  nodes = tree.nodes(root).reverse();
+  var parent;
+  console.log(nodes);
+  nodes.forEach(function(node){
+    if(node.name == label){
+      parent =node.parent.parent;
+    }
+  });
+  return parent;
+}
+
+function collapse(d, label) {
+  //go through tree in in reverse
+  nodes = tree.nodes(d).reverse();
+  //get parents two levels above label
+  var parents = [];
+  nodes.forEach(function(node){
+    if (node.name == label){
+      parents.push(node.parent.parent);
+      parents.push(node.parent);
+    }
+  });
+
+  //collapse nodes two levels above and below label
+  nodes.forEach(function(node){
+    if (node.name != label && node.name != parents[0].name && node.name != parents[1].name && node.parent.name != label && node.parent.parent.name != label){
+      node._children = node.children;
+      node.children = null;
+    }
+  });
+}
+
+function update(source, label) {
 
   // Compute the new tree layout.
   var nodes = tree.nodes(root).reverse(),
@@ -92,20 +119,17 @@ function update(source) {
 
   nodeEnter.append("circle")
       .attr("r", 1e-6)
-      .style("fill", function(d) {
-        if(d.name == "built environment"){
-          return "red";
-        }
-        else{
-          return d._children ? "lightsteelblue" : "#fff";
-        } });
+      .style("fill", function(d) {return d._children ? "lightsteelblue" : "#fff"; })
+
 
   nodeEnter.append("text")
       .attr("x", function(d) { return d.children || d._children ? -10 : 10; })
       .attr("dy", ".35em")
       .attr("text-anchor", function(d) { return d.children || d._children ? "end" : "start"; })
       .text(function(d) { return d.name; })
-      .style("fill-opacity", 1e-6);
+      .style("fill-opacity", 1e-6)
+      .style("border", "5px solid red");
+     
 
   // Transition nodes to their new position.
   var nodeUpdate = node.transition()
@@ -123,7 +147,9 @@ function update(source) {
         } });
 
   nodeUpdate.select("text")
-      .style("fill-opacity", 1);
+      .style("fill-opacity", 1)
+      .style("border", "5px solid red");
+      
 
   // Transition exiting nodes to the parent's new position.
   var nodeExit = node.exit().transition()
@@ -135,7 +161,8 @@ function update(source) {
       .attr("r", 1e-6);
 
   nodeExit.select("text")
-      .style("fill-opacity", 1e-6);
+      .style("fill-opacity", 1e-6)
+      .style("border", "5px solid red");
 
   // Update the links…
   var link = svg.selectAll("path.link")
